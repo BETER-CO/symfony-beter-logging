@@ -1,0 +1,89 @@
+parameters:
+    # BasicProcessor parameters
+    beter.logger.app.name: 'app.name'
+    beter.logger.app.service: 'app.service'
+
+    # Logstash handler parameters
+    beter.logger.logstash_handler.host: 'host.docker.internal'
+    beter.logger.logstash_handler.port: 5045
+    beter.logger.logstash_handler.socket_transport: 'tcp'
+    beter.logger.logstash_handler.level: 'info'
+    beter.logger.logstash_handler.bubble: false
+    beter.logger.logstash_handler.persistent: false
+    beter.logger.logstash_handler.socket_timeout: 0.5
+    beter.logger.logstash_handler.writing_timeout: 0.5
+    beter.logger.logstash_handler.connection_timeout: 0.1
+    beter.logger.logstash_handler.chunk_size: 3
+
+    # Standard stream handler parameters
+    beter.logger.standard_stream_handler.level: 'info'
+    beter.logger.standard_stream_handler.bubble: true
+    beter.logger.standard_stream_handler.stream: php://stderr
+
+    # Console formatter parameters
+    beter.logger.console_formatter.colorize: true
+    beter.logger.console_formatter.indent_size: 4
+    beter.logger.console_formatter.trace_depth: 5
+
+    # Logstash formatter parameters
+    beter.logger.logstash_formatter.trace_depth: 5
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        bind:
+            # BasicProcessor
+            string $envName: '%kernel.environment%'
+            string $app: '%beter.logger.app.name%'
+            string $service: '%beter.logger.app.service%'
+            string $execType: 'web'
+            string $host: 'host.docker.internal' # would be called gethostname()
+
+            #CorrelationIdProcessor
+            int $length: 32
+            bool $searchInHeaders: true
+            string $correlationIdHeaderName: 'X-Request-Id'
+
+    Beter\Bundle\BeterLoggingBundle\Processor\BasicProcessor:
+        tags: { name: 'monolog.processor' }
+    Beter\Bundle\BeterLoggingBundle\Processor\CorrelationIdProcessor:
+        tags: { name: 'monolog.processor' }
+
+    beter.logger.logstash_formatter:
+        class: Beter\Bundle\BeterLoggingBundle\Formatter\LogstashFormatter
+        arguments:
+            $traceDepth: '%beter.logger.logstash_formatter.trace_depth%'
+
+    beter.logger.console_formatter:
+        class: Beter\Bundle\BeterLoggingBundle\Formatter\ConsoleFormatter
+        arguments:
+            $colorize: '%beter.logger.console_formatter.colorize%'
+            $indentSize: '%beter.logger.console_formatter.indent_size%'
+            $traceDepth: '%beter.logger.console_formatter.trace_depth%'
+
+    beter.logger.logstash_handler:
+        class: Beter\Bundle\BeterLoggingBundle\Handler\LogstashHandler
+        arguments:
+            $host: "%beter.logger.logstash_handler.host%"
+            $port: "%beter.logger.logstash_handler.port%"
+            $socketTransport: "%beter.logger.logstash_handler.socket_transport%"
+            $level: "%beter.logger.logstash_handler.level%"
+            $bubble: "%beter.logger.logstash_handler.bubble%"
+            $persistent: "%beter.logger.logstash_handler.persistent%"
+            $socketTimeout: "%beter.logger.logstash_handler.socket_timeout%"
+            $writingTimeout: "%beter.logger.logstash_handler.writing_timeout%"
+            $connectionTimeout: "%beter.logger.logstash_handler.connection_timeout%"
+            $chunkSize: "%beter.logger.logstash_handler.chunk_size%"
+        calls:
+            - setFormatter: ['@beter.logger.logstash_formatter']
+
+    beter.logger.standard_stream_handler:
+        class: Beter\Bundle\BeterLoggingBundle\Handler\StandardStreamHandler
+        arguments:
+            $stream: "%beter.logger.standard_stream_handler.stream%"
+            $level: "%beter.logger.standard_stream_handler.level%"
+            $bubble: "%beter.logger.standard_stream_handler.bubble%"
+        calls:
+            - setFormatter: ['@beter.logger.console_formatter']
